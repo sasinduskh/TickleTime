@@ -1,101 +1,126 @@
-import Image from "next/image";
+"use client";
+import "./globals.css";
+
+import { useState, useEffect } from "react";
+import { User } from "firebase/auth";
+import { collection, query, where, onSnapshot, doc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { Project, User as CustomUser } from "../types/project";
+import ProjectList from "../components/ProjectList";
+import ProjectDetails from "../components/ProjectDetails";
+import Auth from "../components/Auth";
+import ProjectReport from "../components/ProjectReport";
+import UserSettings from "../components/UserSettings";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
+import Link from "next/link";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [user, setUser] = useState<User | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const [userData, setUserData] = useState<CustomUser | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    if (user) {
+      const q = query(
+        collection(db, "projects"),
+        where("ownerId", "==", user.uid)
+      );
+
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const projectsData: Project[] = [];
+        querySnapshot.forEach((doc) => {
+          projectsData.push({ id: doc.id, ...doc.data() } as Project);
+        });
+        setProjects(projectsData);
+      });
+
+      const userRef = doc(db, "users", user.uid);
+      const unsubscribeUser = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          setUserData({
+            ...user,
+            ...doc.data(),
+            hourlyRate: doc.data().hourlyRate || 0,
+            publicShareId: doc.data().publicShareId || "",
+          } as CustomUser);
+        }
+      });
+
+      return () => {
+        unsubscribe();
+        unsubscribeUser();
+      };
+    }
+  }, [user]);
+
+  const selectProject = (project: Project) => {
+    setSelectedProject(project);
+    setShowReport(false);
+  };
+
+  console.log(showReport);
+
+  return (
+    <div className="min-h-screen bg-white text-black">
+      <div className="container mx-auto p-4">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold mb-4 md:mb-0">
+            TickleTime ⏰✨{" "}
+            <span className="text-sm">
+              Create by
+              <Link
+                className="underline"
+                href="https://sk-website-topaz.vercel.app/projects"
+                target="_blank"
+              >
+                {" "}
+                SK
+              </Link>
+            </span>
+          </h1>
+          <Auth onUserChange={setUser} />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        {userData && (
+          <UserSettings
+            user={userData as any}
+            hourlyRate={userData.hourlyRate || 0}
+            publicShareId={userData.publicShareId}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        )}
+        {user && (
+          <Tabs defaultValue="projects" className="mt-8">
+            <TabsList className="grid w-full grid-cols-2 mb-8">
+              <TabsTrigger value="projects">Projects</TabsTrigger>
+              <TabsTrigger value="report">Report</TabsTrigger>
+            </TabsList>
+            <TabsContent value="projects" className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <ProjectList
+                  projects={projects}
+                  selectProject={selectProject}
+                />
+                {selectedProject && userData && (
+                  <ProjectDetails
+                    project={selectedProject}
+                    currentUser={user}
+                    userData={userData}
+                  />
+                )}
+              </div>
+            </TabsContent>
+            <TabsContent value="report">
+              <ProjectReport projects={projects} />
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 }
